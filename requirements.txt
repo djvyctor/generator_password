@@ -1,0 +1,39 @@
+cryptography - 🔐 SEGURANÇA
+
+    Criptografa e descriptografa suas senhas
+
+    Protege o arquivo com sua "senha master"
+
+    Gera números realmente aleatórios para senhas seguras
+
+pyperclip - 📋 PRATICIDADE
+
+    Copia senhas geradas para a área de transferência com um clique
+
+    Você gera a senha e já pode colar direto no site/app
+
+rich - 🎨 INTERFACE BONITA
+
+    Deixa o terminal colorido e organizado
+
+    Cria tabelas, barras de progresso, textos com cores
+
+    Faz seu app parecer profissional
+
+click - ⚡ FACILITA OS COMANDOS
+
+    Cria um sistema de menus e opções no terminal
+
+    Organiza comandos como "gerar-senha", "listar-senhas", etc.
+
+    Valida entradas do usuário automaticamente
+
+--------------------------------------------------------------------------
+
+customtkinter - 🖼️ INTERFACE GRÁFICA
+
+    Cria janelas bonitas e modernas para o usuário
+
+    Facilita a interação com botões, campos de texto, etc.
+
+    Deixa o app mais amigável para quem não gosta de terminal
