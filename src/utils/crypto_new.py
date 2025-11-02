@@ -1,70 +1,21 @@
-"""Utilitários de criptografia.
+"""Helpers de criptografia (PBKDF2 + AES-GCM) usados por testes e migração.
 
-Este módulo fornece duas famílias de utilitários:
-
-- Helpers legados baseados em Fernet usados pelo restante da aplicação:
-  `generate_key`, `save_key`, `load_key`, `encrypt_data`, `decrypt_data`.
-- Utilitários mais novos (PBKDF2 + AES-GCM) usados por testes e para
-  migração futura: `generate_salt`, `derive_key`, `encrypt`, `decrypt`,
-  `generate_password`.
-
-Ambos coexistem aqui para compatibilidade durante a migração para um
-esquema derivado (PBKDF2 + AES-GCM).
+Fornece funções para gerar salt, derivar chave, encriptar/desencriptar com
+AES-GCM e gerar senhas seguras.
 """
 
 from __future__ import annotations
 
 import base64
-import os
 import secrets
 from typing import Dict
 
-from cryptography.fernet import Fernet
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
-
-# -----------------
-# Legado / Fernet
-# -----------------
-
-def generate_key() -> bytes:
-    """Gera uma nova chave Fernet (bytes base64 urlsafe).
-
-    Usada pela criptografia legada do vault.
-    """
-    return Fernet.generate_key()
-
-
-def save_key(path: str, key: bytes):
-    with open(path, "wb") as f:
-        f.write(key)
-
-
-def load_key(path: str) -> bytes:
-    with open(path, "rb") as f:
-        return f.read()
-
-
-def encrypt_data(data: str, key: bytes) -> bytes:
-    """Criptografa uma string usando uma chave Fernet e retorna o token (bytes)."""
-    f = Fernet(key)
-    return f.encrypt(data.encode())
-
-
-def decrypt_data(token: bytes, key: bytes) -> str:
-    """Descriptografa um token Fernet (bytes) e retorna a string decodificada."""
-    f = Fernet(key)
-    return f.decrypt(token).decode()
-
-
-# -----------------
-# Novos utilitários (PBKDF2 + AES-GCM)
-# -----------------
-
-# Constantes para o esquema de chave derivada
+# Constantes
 _SALT_SIZE = 16
 _NONCE_SIZE = 12
 _KEY_SIZE = 32
@@ -72,15 +23,12 @@ _KDF_ITERATIONS = 390_000
 
 
 def generate_salt(length: int = _SALT_SIZE) -> bytes:
-    """Retorna bytes de salt gerados criptograficamente seguros."""
+    """Gera um salt aleatório (bytes) de tamanho `length`."""
     return secrets.token_bytes(length)
 
 
 def derive_key(master_password: str, salt: bytes, iterations: int = _KDF_ITERATIONS) -> bytes:
-    """Deriva uma chave de 32 bytes a partir de uma senha e um salt usando PBKDF2-HMAC-SHA256.
-
-    Retorna bytes brutos (32 bytes).
-    """
+    """Deriva uma chave de 32 bytes a partir da `master_password` e `salt`."""
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=_KEY_SIZE, salt=salt, iterations=iterations)
     return kdf.derive(master_password.encode("utf-8"))
 
@@ -94,9 +42,9 @@ def _b64decode(data_str: str) -> bytes:
 
 
 def encrypt(plaintext: bytes, key: bytes) -> Dict[str, str]:
-    """Criptografa bytes com AES-GCM e retorna um dict com componentes em base64.
+    """Criptografa `plaintext` com `key` (AES-GCM) e retorna um dict com base64.
 
-    O dicionário retornado contém 'nonce' e 'ciphertext' (strings base64).
+    Retorna {'nonce': ..., 'ciphertext': ...} (strings em base64).
     """
     aesgcm = AESGCM(key)
     nonce = secrets.token_bytes(_NONCE_SIZE)
@@ -105,7 +53,7 @@ def encrypt(plaintext: bytes, key: bytes) -> Dict[str, str]:
 
 
 def decrypt(enc: Dict[str, str], key: bytes) -> bytes:
-    """Descriptografa um dicionário produzido por :func:`encrypt` e retorna os bytes em claro.
+    """Descriptografa o envelope `enc` e retorna os bytes em claro.
 
     Lança InvalidTag se a autenticação falhar.
     """
@@ -120,7 +68,7 @@ def decrypt(enc: Dict[str, str], key: bytes) -> bytes:
 
 def generate_password(length: int = 16, use_upper: bool = True, use_lower: bool = True,
                       use_digits: bool = True, use_symbols: bool = True) -> str:
-    """Gera uma senha criptograficamente segura com as classes de caracteres solicitadas."""
+    """Gera uma senha segura com as classes solicitadas (maiúsculas/minúsculas/dígitos/símbolos)."""
     if length <= 0:
         raise ValueError("length must be > 0")
 
@@ -148,19 +96,3 @@ def generate_password(length: int = 16, use_upper: bool = True, use_lower: bool 
 
     secrets.SystemRandom().shuffle(password_chars)
     return "".join(password_chars)
-
-
-__all__ = [
-    # legado
-    "generate_key",
-    "save_key",
-    "load_key",
-    "encrypt_data",
-    "decrypt_data",
-    # novos
-    "generate_salt",
-    "derive_key",
-    "encrypt",
-    "decrypt",
-    "generate_password",
-]
