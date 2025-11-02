@@ -9,6 +9,11 @@ def load_vault(key: bytes) -> dict:
         return {}
     with open(VAULT_PATH, 'rb') as f:
         encrypted_data = f.read()
+
+    # If the vault file exists but is empty, treat as empty vault
+    if not encrypted_data:
+        return {}
+
     decrypted = decrypt_data(encrypted_data, key)
     return json.loads(decrypted)
 
