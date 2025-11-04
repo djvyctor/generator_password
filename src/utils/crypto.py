@@ -19,7 +19,7 @@ import os
 import secrets
 from typing import Dict
 
-from cryptography.fernet import Fernet
+from cryptography.fernet import Fernet, InvalidToken
 from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -49,15 +49,105 @@ def load_key(path: str) -> bytes:
 
 
 def encrypt_data(data: str, key: bytes) -> bytes:
-    """Criptografa uma string usando uma chave Fernet e retorna o token (bytes)."""
-    f = Fernet(key)
-    return f.encrypt(data.encode())
+        """Compat wrapper: encripta dados para o vault.
+
+        Comportamento:
+        - Para escrita de novos dados, gravamos no formato v2 (JSON com nonce+ciphertext,
+            usando AES-GCM). Isso permite migrar gradualmente para o novo esquema.
+        - Mantemos a assinatura/assinatura da função para compatibilidade com o resto do app.
+        """
+        return encrypt_data_v2(data, key)
 
 
 def decrypt_data(token: bytes, key: bytes) -> str:
-    """Descriptografa um token Fernet (bytes) e retorna a string decodificada."""
-    f = Fernet(key)
-    return f.decrypt(token).decode()
+    """Descriptografa um token do vault e retorna a string decodificada.
+
+    Estratégia de compatibilidade:
+    1. Tenta descriptografar como Fernet (legado).
+    2. Se falhar com InvalidToken, tenta o novo envelope v2 (JSON com nonce/ciphertext).
+    3. Se nenhum funcionar, propaga a exceção original.
+    """
+    # Primeiro tente Fernet (legado)
+    try:
+        f = Fernet(key)
+        return f.decrypt(token).decode()
+    except InvalidToken:
+        # tentar novo formato v2
+        return decrypt_data_v2(token, key)
+
+
+# -----------------
+# Compat / v2 (AES-GCM envelope)
+# -----------------
+import json
+
+
+def _normalize_key_for_aes(key: bytes) -> bytes:
+    """Normaliza a chave recebida para 32 bytes brutos para uso com AESGCM.
+
+    O `master_key.derive_key` retorna uma chave codificada em base64 urlsafe (como o
+    Fernet espera). Para AES-GCM precisamos dos bytes brutos (32 bytes). Se a chave
+    já for bruta (len == 32) retornamos ela; caso contrário tentamos decodificar base64.
+    """
+    if isinstance(key, str):
+        key = key.encode()
+    # chave já bruta?
+    if len(key) == _KEY_SIZE:
+        return key
+    try:
+        # tenta urlsafe base64
+        return base64.urlsafe_b64decode(key)
+    except Exception:
+        # fallback: tentar base64 padrão
+        return base64.b64decode(key)
+
+
+def is_v2_envelope(data: bytes) -> bool:
+    """Detecta heurísticamente se `data` é um envelope v2 (JSON com nonce+ciphertext)."""
+    try:
+        obj = json.loads(data.decode("utf-8"))
+        return isinstance(obj, dict) and "nonce" in obj and "ciphertext" in obj
+    except Exception:
+        return False
+
+
+def is_fernet_token(data: bytes) -> bool:
+    """Heurística simples para verificar se `data` parece um token Fernet (sem decodificar).
+
+    Observação: usada apenas para sinais diagnósticos; a função de decrypt tenta Fernet
+    diretamente e cai para v2 se necessário.
+    """
+    try:
+        s = data.decode("ascii")
+        return s.startswith("gAAAA")
+    except Exception:
+        return False
+
+
+def encrypt_data_v2(data: str, key: bytes) -> bytes:
+    """Encripta `data` (string) usando AES-GCM e retorna um envelope JSON em bytes.
+
+    O envelope contém 'nonce' e 'ciphertext' (ambos em base64 padrão).
+    """
+    aes_key = _normalize_key_for_aes(key)
+    aesgcm = AESGCM(aes_key)
+    nonce = secrets.token_bytes(_NONCE_SIZE)
+    ct = aesgcm.encrypt(nonce, data.encode("utf-8"), associated_data=None)
+    envelope = {"nonce": _b64encode(nonce), "ciphertext": _b64encode(ct)}
+    return json.dumps(envelope).encode("utf-8")
+
+
+def decrypt_data_v2(token: bytes, key: bytes) -> str:
+    """Descriptografa um envelope v2 (JSON bytes) e retorna a string original.
+
+    Lança exceções de parsing/InvalidTag se o conteúdo for inválido.
+    """
+    if not is_v2_envelope(token):
+        raise InvalidToken
+    obj = json.loads(token.decode("utf-8"))
+    aes_key = _normalize_key_for_aes(key)
+    plaintext = decrypt(obj, aes_key)
+    return plaintext.decode("utf-8")
 
 
 # -----------------
