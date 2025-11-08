@@ -3,7 +3,7 @@ import base64
 import hashlib
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 from cryptography.hazmat.primitives import hashes
-from utils.crypto import encrypt_data, decrypt_data
+from src.utils.crypto import encrypt_data, decrypt_data
 
 #Caminho para armazenar a senha master criptografada
 MASTER_KEY_PATH = "data/master.key"

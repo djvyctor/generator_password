@@ -1,7 +1,7 @@
 import json
 import os
 from cryptography.fernet import InvalidToken
-from utils.crypto import encrypt_data, decrypt_data
+from src.utils.crypto import encrypt_data, decrypt_data
 
 VAULT_PATH = "data/vault.json"
 
@@ -10,17 +10,12 @@ def load_vault(key: bytes) -> dict:
         return {}
     with open(VAULT_PATH, 'rb') as f:
         encrypted_data = f.read()
-
-    #Se o arquivo do vault existir mas estiver vazio, trate como vault vazio
     if not encrypted_data:
         return {}
-
     try:
         decrypted = decrypt_data(encrypted_data, key)
         return json.loads(decrypted)
     except InvalidToken:
-        # Se o conteúdo do vault não puder ser desserializado por Fernet (token inválido),
-        # trate como vault vazio para não quebrar testes/execução interativa.
         return {}
 
 def save_vault(data: dict, key: bytes):
