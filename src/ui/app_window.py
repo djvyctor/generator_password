@@ -55,14 +55,14 @@ class LoginFrame(ctk.CTkFrame):
 			if not verify_master_key(pwd):
 				messagebox.showerror("Erro", "Senha master incorreta.")
 				return
-			# Derivar chave e abrir app
+
 			with open(MASTER_KEY_PATH, "rb") as f:
 				data = f.read()
 			salt = data[:16]
 			key = derive_key(pwd, salt)
 			self.app.on_authenticated(key)
 		else:
-			# Criar senha master (confirmação)
+			# Criar senha master
 			if not self.confirm_entry:
 				messagebox.showerror("Erro", "Confirmação de senha indisponível.")
 				return
@@ -87,11 +87,9 @@ class VaultFrame(ctk.CTkFrame):
 		self.app = master
 		self.key = key
 
-		# Layout
 		self.columnconfigure(0, weight=1)
 		self.rowconfigure(1, weight=1)
 
-		# Barra superior com botões
 		top_bar = ctk.CTkFrame(self)
 		top_bar.grid(row=0, column=0, sticky="ew", padx=8, pady=(8, 0))
 		add_btn = ctk.CTkButton(top_bar, text="Adicionar", command=self._add)
@@ -101,7 +99,6 @@ class VaultFrame(ctk.CTkFrame):
 		copy_btn = ctk.CTkButton(top_bar, text="Copiar senha", command=self._copy)
 		copy_btn.pack(side=tk.LEFT, padx=4, pady=6)
 
-		# Lista (Treeview do ttk para seleção)
 		self.tree = ttk.Treeview(self, columns=("service", "username"), show="headings", height=12)
 		self.tree.heading("service", text="Serviço")
 		self.tree.heading("username", text="Usuário")
@@ -109,7 +106,6 @@ class VaultFrame(ctk.CTkFrame):
 		self.tree.column("username", width=200)
 		self.tree.grid(row=1, column=0, sticky="nsew", padx=8, pady=8)
 
-		# Scrollbar
 		vsb = ttk.Scrollbar(self, orient="vertical", command=self.tree.yview)
 		self.tree.configure(yscrollcommand=vsb.set)
 		vsb.grid(row=1, column=1, sticky="ns", pady=8)
