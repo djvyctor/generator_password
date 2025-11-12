@@ -1,5 +1,5 @@
 import pytest
-from src.utils.crypto_new import (
+from src.utils.crypto import (
     generate_salt,
     derive_key,
     encrypt,

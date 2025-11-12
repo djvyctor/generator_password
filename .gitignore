@@ -50,3 +50,10 @@ data/vault.json
 .env
 .env.local
 .env.*.local
+
+# Pytest
+.pytest_cache/
+*.pytest_cache
+
+# Release artifacts (não ignorar VERSION, CHANGELOG.md, RELEASE.md)
+# Apenas ignorar builds temporários se necessário
